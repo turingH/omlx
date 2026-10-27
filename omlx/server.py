@@ -1307,7 +1307,7 @@ class DebugRequestLoggingMiddleware:
             "Incoming %s %s — body: %s",
             scope["method"],
             scope["path"],
-            body.decode("utf-8", errors="replace"),
+            "<redacted>" if scope["path"] == "/admin/api/login" else body.decode("utf-8", errors="replace"),
         )
 
         # Replay cached body for inner app, then forward real receive

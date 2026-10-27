@@ -96,3 +96,24 @@ class TestDebugRequestLoggingMiddleware:
         assert received == [body]
         logged = "\n".join(r.getMessage() for r in caplog.records)
         assert '"model": "whisper"' in logged
+
+    @pytest.mark.asyncio
+    async def test_login_body_redacted(self, caplog):
+        received = []
+
+        async def inner_app(scope, receive, send):
+            message = await receive()
+            received.append(message["body"])
+
+        body = b'{"api_key":"main-secret","remember":false}'
+        middleware = DebugRequestLoggingMiddleware(inner_app)
+        caplog.set_level(TRACE, logger="omlx.server")
+        scope = _make_scope("application/json")
+        scope["path"] = "/admin/api/login"
+
+        await middleware(scope, _make_receive(body), _noop_send)
+
+        assert received == [body]
+        logged = "\n".join(r.getMessage() for r in caplog.records)
+        assert "main-secret" not in logged
+        assert logged.count("<redacted>") == 1
