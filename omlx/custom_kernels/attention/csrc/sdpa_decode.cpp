@@ -469,6 +469,16 @@ mx::array sdpa_decode(
         "[attention.sdpa_decode] unsupported shapes/dtypes for the "
         "decode kernels.");
   }
+  if (mask.has_value()) {
+    const auto& m = *mask;
+    Shape expected{q.shape(0), q.shape(1), q.shape(2), k.shape(2)};
+    if (m.ndim() != 4 || (m.dtype() != bool_ && m.dtype() != q.dtype()) ||
+        broadcast_shapes(m.shape(), expected) != expected) {
+      throw std::invalid_argument(
+          "[attention.sdpa_decode] mask shape/dtype must be "
+          "broadcast-compatible with [B,H,qL,kL].");
+    }
+  }
   auto s = to_stream(s_);
   std::vector<array> inputs = {q, k, v};
   auto primitive = std::make_shared<SdpaDecodePrimitive>(s, scale, causal);

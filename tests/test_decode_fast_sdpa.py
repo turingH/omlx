@@ -55,3 +55,27 @@ def test_wrapper_falls_back_for_long_query():
     ref = mx.fast.scaled_dot_product_attention(q, k, v, scale=0.125)
     mx.eval(out, ref)
     assert mx.allclose(out, ref, atol=1e-5, rtol=1e-5).item()
+
+
+@pytest.mark.skipif(not fast.NATIVE_AVAILABLE, reason="native extension not built")
+def test_rejects_incompatible_mask():
+    q = mx.zeros((1, 1, 1, 64), dtype=mx.float16)
+    k = mx.zeros((1, 1, 4, 64), dtype=mx.float16)
+    v = mx.full((1, 1, 4, 64), 7, dtype=mx.float16)
+    storage = mx.array([[[[-float("inf"), -float("inf"), 0, 0]]]], dtype=mx.float16)
+
+    with pytest.raises(ValueError, match="broadcast"):
+        fast._ext.sdpa_decode(q, k, v, 1.0, False, mask=storage[..., :2])
+
+
+@pytest.mark.skipif(not fast.NATIVE_AVAILABLE, reason="native extension not built")
+def test_singleton_mask_broadcast():
+    q = mx.zeros((1, 1, 1, 64), dtype=mx.float16)
+    k = mx.zeros((1, 1, 4, 64), dtype=mx.float16)
+    v = mx.full((1, 1, 4, 64), 7, dtype=mx.float16)
+    mask = mx.zeros((1, 1, 1, 1), dtype=mx.float16)
+
+    out = fast._ext.sdpa_decode(q, k, v, 1.0, False, mask=mask)
+    ref = mx.fast.scaled_dot_product_attention(q, k, v, scale=1.0, mask=mask)
+    mx.eval(out, ref)
+    assert mx.allclose(out, ref, atol=1e-5, rtol=1e-5).item()
